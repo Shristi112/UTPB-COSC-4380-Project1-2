@@ -6,9 +6,9 @@ public class PolyalphabeticCipher {
     private final String key;
 
     public PolyalphabeticCipher(String alphabet, String key) {
-        this.alphabet = alphabet;
+        this.alphabet = alphabet + alphabet.toLowerCase() + " "; // Include both uppercase, lowercase, and space in alphabet
         this.key = key;
-        this.beta = generateBetaMatrix(alphabet);
+        this.beta = generateBetaMatrix(this.alphabet);
     }
 
     private char[][] generateBetaMatrix(String alphabet) {
@@ -29,14 +29,13 @@ public class PolyalphabeticCipher {
     public String encrypt(String plaintext) {
         StringBuilder ciphertext = new StringBuilder();
         int keyLength = key.length();
-        int alphaLength = alphabet.length();
         
         for (int i = 0; i < plaintext.length(); i++) {
             char plainChar = plaintext.charAt(i);
             char keyChar = key.charAt(i % keyLength);
             int row = alphabet.indexOf(keyChar);
             int col = alphabet.indexOf(plainChar);
-            if (col == -1) {
+            if (col == -1 || row == -1) {
                 ciphertext.append(plainChar);
             } else {
                 ciphertext.append(beta[row][col]);
@@ -48,7 +47,6 @@ public class PolyalphabeticCipher {
     public String decrypt(String ciphertext) {
         StringBuilder plaintext = new StringBuilder();
         int keyLength = key.length();
-        int alphaLength = alphabet.length();
         
         for (int i = 0; i < ciphertext.length(); i++) {
             char cipherChar = ciphertext.charAt(i);
@@ -67,10 +65,10 @@ public class PolyalphabeticCipher {
 
     public static void main(String[] args) {
         String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        String key = "KEY";
+        String key = "Key";
         
         PolyalphabeticCipher cipher = new PolyalphabeticCipher(alphabet, key);
-        String plaintext = "HELLO";
+        String plaintext = "Cryptography is Fun";
         String encrypted = cipher.encrypt(plaintext);
         String decrypted = cipher.decrypt(encrypted);
         
