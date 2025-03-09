@@ -71,6 +71,7 @@ Decrypted: Hello World
 
 ## Notes
 - Ensure the key and alphabet remain consistent when decrypting messages.
-- Only characters present in the **defined alphabet** are encrypted; all others remain unchanged.
+- Only characters present in the **defined alphabet** are encrypted; all others remain unchanged. 
+-
 
 
