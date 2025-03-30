@@ -1,7 +1,7 @@
 import java.util.*;
 import java.util.stream.*;
 
-public class ColTransCracker {
+public class ColumnarCracker {
 
     // Enhanced English word detection
     private static final Set<String> COMMON_WORDS = new HashSet<>(Arrays.asList(
@@ -195,7 +195,7 @@ public class ColTransCracker {
     }
 
     public static void main(String[] args) {
-        ColTransCracker cracker = new ColTransCracker();
+        ColumnarCracker cracker = new ColumnarCracker();
         
         // Test with known ciphertext ("HELLO WORLD" encrypted with key length 4)
         String ciphertext = "LOHELWRDOLX";
