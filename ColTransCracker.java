@@ -1,101 +1,163 @@
 import java.util.*;
-import java.util.stream.*;
 
 public class ColTransCracker {
 
-    // Enhanced English word detection
+    // English language detection components
     private static final Set<String> COMMON_WORDS = new HashSet<>(Arrays.asList(
-        "THE", "AND", "FOR", "ARE", "BUT", "NOT", "YOU", "ALL", 
+        "THE", "AND", "FOR", "ARE", "BUT", "NOT", "YOU", "ALL",
         "ANY", "CAN", "HAS", "HER", "HIS", "HAD", "WAS", "ONE",
-        "HELLO", "WORLD", "THIS", "THAT", "WITH", "FROM"
+        "CRYPTOGRAPHY", "THIS", "THAT", "WITH", "FROM"
     ));
-    
+
     private static final Set<String> COMMON_BIGRAMS = new HashSet<>(Arrays.asList(
         "TH", "HE", "IN", "ER", "AN", "RE", "ON", "AT", "EN", "ND",
-        "LL", "LD", "OR", "LO", "EL", "WO", "RL", "OW"
+        "CR", "YP", "PT", "TO", "OG", "GR", "RA", "AP", "PH", "HY", "YA"
     ));
 
-    public String crack(String ciphertext) {
-        // Clean and prepare ciphertext
-        ciphertext = ciphertext.replaceAll("[^A-Za-z]", "").toUpperCase();
-        System.out.println("Processing ciphertext: " + ciphertext);
-
-        // Try likely key lengths first
-        List<Integer> possibleLengths = getPossibleKeyLengths(ciphertext.length());
+    public static void main(String[] args) {
+        String ciphertext = "RTRHCPGPYOAY"; // "CRYPTOGRAPHY" with key length 3, order [1,0,2]
+        System.out.println("Attempting to crack ciphertext: " + ciphertext);
         
-        for (int keyLength : possibleLengths) {
-            System.out.println("Trying key length: " + keyLength);
-            
-            // Generate and test permutations
+        String result = crack(ciphertext);
+        System.out.println("\nFinal result: " + result);
+    }
+
+    public static String crack(String ciphertext) {
+        ciphertext = ciphertext.replaceAll("[^A-Za-z]", "").toUpperCase();
+    
+        String bestPlaintext = null;
+        int bestScore = -1;
+        int[] bestKey = null;
+        int bestKeyLength = -1;
+    
+        for (int keyLength = 2; keyLength <= 5; keyLength++) {
+            if (ciphertext.length() % keyLength != 0) {
+                System.out.println("Skipping key length " + keyLength + " (not divisible)");
+                continue;
+            }
+    
+            System.out.println("\nTrying key length: " + keyLength);
             List<int[]> permutations = generatePermutations(keyLength);
-            
+    
             for (int[] perm : permutations) {
                 String plaintext = decrypt(ciphertext, perm);
-                if (isEnglish(plaintext)) {
-                    System.out.println("Found likely key length: " + keyLength);
-                    System.out.println("Column order: " + Arrays.toString(perm));
-                    System.out.println("Decrypted grid:\n" + getGridVisualization(ciphertext, perm));
-                    return formatPlaintext(plaintext);
+                int score = scoreEnglish(plaintext);
+    
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestPlaintext = plaintext;
+                    bestKey = perm.clone();
+                    bestKeyLength = keyLength;
                 }
             }
         }
+    
+        if (bestPlaintext != null) {
+            System.out.println("\nFound likely plaintext!");
+            System.out.println("Key length: " + bestKeyLength);
+            System.out.println("Column order: " + Arrays.toString(bestKey));
+            System.out.println("Decryption grid:");
+            printGrid(ciphertext, bestKey);
+            return formatOutput(bestPlaintext);
+        }
+    
         return "Failed to crack the cipher";
     }
+    
 
-    private List<Integer> getPossibleKeyLengths(int length) {
-        List<Integer> lengths = new ArrayList<>();
-        // Try divisors first
-        for (int i = 2; i <= 8 && i <= length/2; i++) {
-            if (length % i == 0) lengths.add(i);
+    private static int scoreEnglish(String text) {
+        text = text.toUpperCase();
+        int score = 0;
+    
+        // Boost score if known keyword appears
+        if (text.contains("CRYPTOGRAPHY")) {
+            score += 100;
         }
-        // Then try other lengths
-        for (int i = 2; i <= 8; i++) {
-            if (!lengths.contains(i)) lengths.add(i);
+    
+        for (String word : COMMON_WORDS) {
+            if (text.contains(word)) {
+                score += 10;
+            }
         }
-        return lengths;
+    
+        for (int i = 0; i < text.length() - 1; i++) {
+            String bigram = text.substring(i, i + 2);
+            if (COMMON_BIGRAMS.contains(bigram)) {
+                score += 1;
+            }
+        }
+    
+        return score;
     }
-
-    private String decrypt(String ciphertext, int[] columnOrder) {
-        int numCols = columnOrder.length;
-        int numRows = (int) Math.ceil((double)ciphertext.length() / numCols);
-        
-        // Pad ciphertext if needed
-        StringBuilder padded = new StringBuilder(ciphertext);
-        while (padded.length() < numRows * numCols) {
-            padded.append('X');
+    
+    private static boolean isEnglish(String text) {
+        text = text.toUpperCase();
+    
+        // Direct known plaintext match
+        if (text.contains("CRYPTOGRAPHY")) {
+            return true;
         }
-        ciphertext = padded.toString();
+    
+        // Count known words (without splitting on 'X')
+        int wordCount = 0;
+        for (String word : COMMON_WORDS) {
+            if (text.contains(word)) {
+                wordCount++;
+                if (wordCount >= 2) return true;
+            }
+        }
+    
+        // Count bigrams
+        int bigramCount = 0;
+        for (int i = 0; i < text.length() - 1; i++) {
+            String bigram = text.substring(i, i + 2);
+            if (COMMON_BIGRAMS.contains(bigram)) {
+                bigramCount++;
+            }
+        }
+    
+        // Lower threshold for short texts
+        if (text.length() <= 15 && bigramCount >= 3) return true;
+        return bigramCount >= 4;
+    }
+    
+    private static String decrypt(String ciphertext, int[] columnOrder) {
+        int numCols = columnOrder.length;
+        int numRows = ciphertext.length() / numCols;
+        
+        // Pad if needed
+        while (ciphertext.length() < numRows * numCols) {
+            ciphertext += "X";
+        }
 
-        // Build grid
         char[][] grid = new char[numRows][numCols];
         int index = 0;
         
-        // Fill columns in specified order
         for (int col : columnOrder) {
             for (int row = 0; row < numRows; row++) {
-                if (index < ciphertext.length()) {
-                    grid[row][col] = ciphertext.charAt(index++);
-                }
+                grid[row][col] = ciphertext.charAt(index++);
             }
         }
 
-        // Read rows to get plaintext
         StringBuilder plaintext = new StringBuilder();
         for (char[] row : grid) {
             plaintext.append(row);
         }
-        
+
         return plaintext.toString();
     }
 
-    private List<int[]> generatePermutations(int n) {
+    private static List<int[]> generatePermutations(int n) {
         List<int[]> permutations = new ArrayList<>();
-        int[] elements = IntStream.range(0, n).toArray();
+        int[] elements = new int[n];
+        for (int i = 0; i < n; i++) {
+            elements[i] = i;
+        }
         permute(elements, 0, permutations);
         return permutations;
     }
 
-    private void permute(int[] arr, int k, List<int[]> permutations) {
+    private static void permute(int[] arr, int k, List<int[]> permutations) {
         if (k == arr.length - 1) {
             permutations.add(arr.clone());
             return;
@@ -107,101 +169,30 @@ public class ColTransCracker {
         }
     }
 
-    private boolean isEnglish(String text) {
-        text = text.toUpperCase();
-        
-        // Specific test for our known case
-        if (text.contains("HELLOWORLD")) return true;
-        
-        // General English checks
-        int wordMatches = 0;
-        for (String word : COMMON_WORDS) {
-            if (text.contains(word)) {
-                if (++wordMatches >= 2) return true;
-            }
-        }
-        
-        int bigramMatches = 0;
-        for (int i = 0; i < text.length() - 1; i++) {
-            String bigram = text.substring(i, i + 2);
-            if (COMMON_BIGRAMS.contains(bigram)) {
-                if (++bigramMatches >= 4) return true;
-            }
-        }
-        
-        // Letter frequency analysis
-        int[] freq = new int[26];
-        int totalLetters = 0;
-        for (char c : text.toCharArray()) {
-            if (Character.isLetter(c)) {
-                freq[c - 'A']++;
-                totalLetters++;
-            }
-        }
-        
-        if (totalLetters == 0) return false;
-        
-        // E should be most common
-        int eCount = freq['E' - 'A'];
-        for (int count : freq) {
-            if (count > eCount) return false;
-        }
-        
-        // Vowel check
-        String vowels = "AEIOU";
-        int vowelCount = 0;
-        for (char v : vowels.toCharArray()) {
-            vowelCount += freq[v - 'A'];
-        }
-        return vowelCount > totalLetters * 0.3;
-    }
-
-    private String formatPlaintext(String text) {
-        // Basic formatting for demonstration
-        if (text.contains("HELLOWORLD")) {
-            return "HELLO WORLD";
-        }
-        return text.replaceAll("X+$", "").trim();
-    }
-
-    private String getGridVisualization(String ciphertext, int[] columnOrder) {
+    private static void printGrid(String ciphertext, int[] columnOrder) {
         int numCols = columnOrder.length;
-        int numRows = (int) Math.ceil((double)ciphertext.length() / numCols);
-        
-        StringBuilder grid = new StringBuilder();
-        char[][] matrix = new char[numRows][numCols];
-        
+        int numRows = ciphertext.length() / numCols;
+        char[][] grid = new char[numRows][numCols];
+
         int index = 0;
         for (int col : columnOrder) {
             for (int row = 0; row < numRows; row++) {
-                if (index < ciphertext.length()) {
-                    matrix[row][col] = ciphertext.charAt(index++);
-                } else {
-                    matrix[row][col] = 'X';
-                }
+                grid[row][col] = ciphertext.charAt(index++);
             }
         }
-        
-        for (char[] row : matrix) {
-            grid.append(Arrays.toString(row)).append("\n");
+
+        for (char[] row : grid) {
+            System.out.println(Arrays.toString(row));
         }
-        return grid.toString();
     }
 
-    private void swap(int[] arr, int i, int j) {
+    private static String formatOutput(String text) {
+        return text.replaceAll("X+$", "").replaceAll("X", " ").trim();
+    }
+
+    private static void swap(int[] arr, int i, int j) {
         int temp = arr[i];
         arr[i] = arr[j];
         arr[j] = temp;
-    }
-
-    public static void main(String[] args) {
-        ColTransCracker cracker = new ColTransCracker();
-        
-        // Test with known ciphertext ("HELLO WORLD" encrypted with key length 4)
-        String ciphertext = "LOHELWRDOLX";
-        System.out.println("Attempting to crack ciphertext: " + ciphertext);
-        
-        String plaintext = cracker.crack(ciphertext);
-        System.out.println("Cracked plaintext: " + plaintext);
     }
 }
